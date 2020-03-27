@@ -1,0 +1,7 @@
+#!/bin/sh -e
+
+cd /data
+
+export PLUGIN_PORT=9002
+
+exec /usr/local/bin/acmeproxy --api 9002 --domain ${FRPS_SUBDOMAIN_HOST} 2>&1
