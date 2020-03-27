@@ -187,8 +187,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
                 } else {
                     o.Reject = false
                     o.Unchange = true
-                    return
-
                 }
 
                 js, err := json.Marshal(o)

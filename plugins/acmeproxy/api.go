@@ -59,29 +59,22 @@ func (s APIServer) handler(w http.ResponseWriter, r *http.Request) {
                 o.Reject = false
                 o.Unchange = true
 
-                if r.Content["proxy_type"] != "http" {
+                if r.Content["proxy_type"] == "http" || r.Content["proxy_type"] == "https" {
                     if r.Content["subdomain"] != "" {
-                        var full_domain = s.domain + "." + r.Content["subdomain"].(string)
-                        s.proxy.addFrontend(full_domain, false)
+                        var full_domain = r.Content["subdomain"].(string) + "." + s.domain
+                        s.proxy.addFrontend(full_domain, r.Content["proxy_type"] == "https")
                     }
 
-                    for _, domain := range r.Content["custom_domains"].([]string) {
-                        s.proxy.addFrontend(domain, false)
+                    if r.Content["custom_domains"] != nil {
 
-                    }
+                        for _, domain := range r.Content["custom_domains"].([]string) {
+                            s.proxy.addFrontend(domain, r.Content["proxy_type"] == "https")
 
-                } else if  r.Content["proxy_type"] != "https" {
-                    if r.Content["subdomain"] != "" {
-                        var full_domain = s.domain + "." + r.Content["subdomain"].(string)
-                        s.proxy.addFrontend(full_domain, true)
-                    }
-
-                    for _, domain := range r.Content["custom_domains"].([]string) {
-                        s.proxy.addFrontend(domain, true)
-
+                        }
                     }
 
                 }
+
 
                 js, err := json.Marshal(o)
                 if err != nil {
@@ -106,7 +99,10 @@ func createAPIServer(logger *log.Logger, proxy *ProxyServer, port int, domain st
     }
 
 	http.HandleFunc("/", api.handler)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
+
+     go func () {
+	log.Println(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
+     }()
 
     return api
 

@@ -6,8 +6,8 @@ import (
 	"os"
     "golang.org/x/crypto/acme/autocert"
     "net/http"
-    "net"
     "flag"
+    "strings"
 )
 
 func getEnvString(key string, def string) string {
@@ -20,7 +20,7 @@ func getEnvString(key string, def string) string {
 }
 
 func redirectHttps(w http.ResponseWriter, r *http.Request){
-    host, _, _ := net.SplitHostPort(r.Host)
+    host := strings.Split(r.Host, ":")[0]
     u := r.URL
     u.Host = host
     u.Scheme="https"
@@ -40,6 +40,7 @@ func main() {
 	m := &autocert.Manager{
 		Cache:      autocert.DirCache("certs"),
 		Prompt:     autocert.AcceptTOS,
+		Email:      os.Getenv("FRPS_LETSENCRYPT_EMAIL"),
 	}
 
 	s := &ProxyServer{
@@ -55,7 +56,7 @@ func main() {
 		os.Exit(1)
 	}
 
-    http.ListenAndServe(":80", http.HandlerFunc(redirectHttps))
+	http.ListenAndServe(":81", m.HTTPHandler(http.HandlerFunc(redirectHttps)))
 
 }
 

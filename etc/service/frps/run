@@ -2,4 +2,7 @@
 
 /usr/local/bin/gotemp -f /etc/frps.ini.tpl -o /etc/frps.ini
 
+sv start portmanager || exit 1
+sv start acmeproxy || exit 1
+
 exec /usr/local/bin/frps -c /etc/frps.ini 2>&1

@@ -26,7 +26,7 @@ type ProxyServer struct {
 
 func (s *ProxyServer) Run() error {
 	// bind a port to handle TLS connections
-	l, err := net.Listen("tcp", ":443")
+	l, err := net.Listen("tcp", ":444")
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,12 @@ func (s *ProxyServer) addFrontend(name string, passthrough bool)  (err error) {
     if passthrough {
     	go s.runFrontend(name, nil, fl)
     } else {
-        go s.runFrontend(name, s.Manager.TLSConfig(), fl)
+	    tlsconfig := &tls.Config{
+		    GetCertificate: s.Manager.GetCertificate,
+		    NextProtos: []string{"http/1.1"},
+	    }
+
+        go s.runFrontend(name, tlsconfig, fl)
     }
 
     return nil
@@ -78,7 +83,6 @@ func (s *ProxyServer) addFrontend(name string, passthrough bool)  (err error) {
 
 func (s *ProxyServer) runFrontend(name string, tlsConfig *tls.Config, l net.Listener) {
 
-	s.Printf("Handling connections to %v", name)
 	for {
 		// accept next connection to this frontend
 		conn, err := l.Accept()
@@ -91,7 +95,6 @@ func (s *ProxyServer) runFrontend(name string, tlsConfig *tls.Config, l net.List
 			}
 			return
 		}
-		s.Printf("Accepted new connection for %v from %v", name, conn.RemoteAddr())
 
 		// proxy the connection to an backend
 		go s.proxyConnection(conn, tlsConfig)
@@ -102,10 +105,12 @@ func (s *ProxyServer) proxyConnection(c net.Conn, tlsConfig *tls.Config) (err er
     var backend string
 	// unwrap if tls cert/key was specified
 	if tlsConfig != nil {
-		c = tls.Server(c, tlsConfig)
-        backend = "localhost:81"
-	} else {
-        backend = "localhost:444"
+        var tlsc = tls.Server(c, tlsConfig)
+        tlsc.Handshake()
+        c = net.Conn(tlsc)
+        backend = "localhost:80"
+    } else {
+        backend = "localhost:443"
     }
 
 	// dial the backend
@@ -128,10 +133,11 @@ func (s *ProxyServer) joinConnections(c1 net.Conn, c2 net.Conn) {
 		defer dst.Close()
 		defer src.Close()
 		n, err := io.Copy(dst, src)
-		s.Printf("Copy from %v to %v failed after %d bytes with error %v", src.RemoteAddr(), dst.RemoteAddr(), n, err)
+		if err != nil {
+			s.Printf("Copy from %v to %v failed after %d bytes with error %v", src.RemoteAddr(), dst.RemoteAddr(), n, err)
+		}
 	}
 
-	s.Printf("Joining connections: %v %v", c1.RemoteAddr(), c2.RemoteAddr())
 	wg.Add(2)
 	go halfJoin(c1, c2)
 	go halfJoin(c2, c1)

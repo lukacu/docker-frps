@@ -50,12 +50,6 @@ subdomain_host = {{getenv "FRPS_SUBDOMAIN_HOST" "frps.com"}}
 
 tcp_mux = {{getenv "FRPS_TCP_MUX" "true"}}
 
-{{if env.Getenv "FRPS_LETSENCRYPT_EMAIL" }}
-# Reconfigure local HTTP and HTTPS ports if using ACMEProxy
-vhost_https_port = 444
-vhost_http_port = 81
-{{end}}
-
 {{if env.Getenv "FRPS_PERSISTENT_PORTS" }}
 [plugin.port-manager]
 addr = 127.0.0.1:9001
@@ -65,7 +59,7 @@ ops = NewProxy
 
 {{if env.Getenv "FRPS_LETSENCRYPT_EMAIL" }}
 [plugin.acme-manager]
-addr = 127.0.0.1:9001
+addr = 127.0.0.1:9002
 path = /acme
 ops = NewProxy
 {{end}}
