@@ -8,7 +8,7 @@ RUN cd /src/acmeproxy && go build
 FROM alpine:latest
 MAINTAINER luka.cehovin@gmail.com
 
-ENV FRP_VERSION 0.32.0
+ENV FRP_VERSION 0.33.0
 ENV GOTEMP_VERSION 3.5.0
 
 RUN apk add --no-cache wget ca-certificates tar runit
