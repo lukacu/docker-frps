@@ -15,5 +15,44 @@ Environment configuration:
  * `FRPS_TCP_MUX` - TCP multiplexing, defaults to true
  * `FRPS_PERSISTENT_PORTS` - Enable to turn on PortManager plugin, defaults to false
  * `FRPS_LETSENCRYPT_EMAIL` - Set to your email to enable ACMEProxy, defaults to empty string
+ * `FRPS_LINK_NOTIFIER` - Enable to turn on LinkNotifier plugin, defaults to false
 
-Note that an external volume has to be mounted to `/data` to make the port reservations and certificates persistent.
+Note that an external volume has to be mounted to `/data` to make the port reservations and certificates persistent. 
+
+### LinkNotifier
+
+Plugin can notify user of its active/inactive proxy ports via email. The following information must be provided when starting docker:
+
+ * `FRPS_LINK_NOTIFIER` - set environment var to enable the plugin
+ * `FRPS_LINK_NOTIFIER_SMTP_SERVER`- set environment var to SMTP server in format `hostname.com:port` 
+ * `FRPS_LINK_NOTIFIER_SMTP_ACCOUNT` - set environment var to your email/account name
+ * `FRPS_LINK_NOTIFIER_SMTP_PASS` - set environment var to your password 
+ * `FRPS_LINK_NOTIFIER_EMAIL_SUBJECT` - set environment var to subject of the email, defaults to "Reverse proxy links update"
+ * `FRPS_LINK_NOTIFIER_DELAY_SEC`- set environment var to seconds of delay after last modification has been done befor sending notification, defaults to 15
+ * `FRPS_LINK_NOTIFIER_SLEEP_CHECK_SEC`- set environment var to seconds of sleep time in infinite loop, defaults to 5
+ * `FRPS_LINK_NOTIFIER_CONNECTION_CHECK_TIMEOUT_SEC` - set environment var to second of timeout after port connection is considered inactive, default to 2
+
+Template of the email must be provided in `/data/notification_email.html.tpl`. Template is run for each email notification and passes `DisplayProxyList` struct, which groups proxies of the same user. `Active` and `Inactive` group proxies with the same ContainerName for the given user.
+
+```go
+
+type DisplayProxyList struct {
+    Active      map[string][]ProxyInfo    `json:"active"`
+    Inactive    map[string][]ProxyInfo    `json:"inactive"`
+}
+
+type ProxyInfo struct {
+    Name          string     `json:"name"`
+    ContainerName string     `json:"container_name"`
+    ProxyType     string     `json:"proxy_type"`
+    RemotePort    int        `json:"remote_port"`
+    LocalPort     int        `json:"local_port"`
+    Email         string     `json:"email"`
+    ClientPrefix  string     `json:"frps_prefix"`
+    Url           string     `json:"url"`
+    Active        bool       `json:"active"`
+    Notified      bool       `json:"notified"`
+    
+}
+
+```

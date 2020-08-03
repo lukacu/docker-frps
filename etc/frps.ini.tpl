@@ -64,3 +64,9 @@ path = /acme
 ops = NewProxy
 {{end}}
 
+{{if env.Getenv "FRPS_LINK_NOTIFIER" }}
+[plugin.linknotifier]
+addr = 127.0.0.1:9003
+path = /notifier
+ops = NewProxy
+{{end}}
