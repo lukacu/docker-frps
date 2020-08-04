@@ -54,5 +54,9 @@ type ProxyInfo struct {
     Notified      bool       `json:"notified"`
     
 }
-
 ```
+
+To activate the email notification, FRP client must provide the following meta data in its configuration for each proxy connection:
+ * `meta_notify_email` - set to email address that will recieve the notificaiton
+ * `meta_local_port` - set to local port used (the same as local_port)
+ * `meta_frpc_prefix` - set to FRP client specific name (e.g., server hostname)
