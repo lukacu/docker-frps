@@ -4,6 +4,7 @@ RUN apk --no-cache add build-base git gcc
 ADD ./plugins /src
 RUN cd /src/portmanager && go build
 RUN cd /src/acmeproxy && go build
+RUN cd /src/linknotifier && go build
 
 FROM alpine:latest
 MAINTAINER luka.cehovin@gmail.com
@@ -21,6 +22,7 @@ RUN mkdir /frp/ && cd /frp && \
 
 COPY --from=build /src/portmanager/portmanager /usr/local/bin/
 COPY --from=build /src/acmeproxy/acmeproxy /usr/local/bin/
+COPY --from=build /src/linknotifier/linknotifier /usr/local/bin/
 COPY start_runit /sbin/
 COPY etc /etc/
 
