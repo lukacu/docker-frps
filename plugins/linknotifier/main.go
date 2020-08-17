@@ -339,10 +339,7 @@ func notifier_main() {
                                                  fmt.Sprintf("Subject: %s\r\n", FRPS_LINK_NOTIFIER_EMAIL_SUBJECT ) +
                                                  "\r\n" +
                                                  fmt.Sprintf("%s\r\n",msg.String())
-                            
-                            
-                            fmt.Println(msg_str)
-                            
+                                                        
                             err := smtp.SendMail(FRPS_LINK_NOTIFIER_SMTP_SERVER, auth, FRPS_LINK_NOTIFIER_SMTP_ACCOUNT, []string{email}, []byte(msg_str))
                             
                             if err != nil {
