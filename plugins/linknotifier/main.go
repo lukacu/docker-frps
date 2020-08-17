@@ -423,14 +423,7 @@ func notifier_main() {
                             for _, proxy_ref := range proxy_ref_list {
                                 if proxy_ref.Active {
                                     // copy to list of active proxies for notification mail
-                                    display_proxy_list.Active[proxy_ref.ContainerName] = append(display_proxy_list.Active[proxy_ref.Name], proxy_ref)
-
-                                    // mark as notified
-                                    var actual_ref = references.Proxies[proxy_ref.Name]
-                                    actual_ref.Notified = true
-
-                                    references.Proxies[proxy_ref.Name] = actual_ref
-
+                                    display_proxy_list.Active[proxy_ref.ContainerName] = append(display_proxy_list.Active[proxy_ref.ContainerName], proxy_ref)
                                 }
                             }
 
@@ -438,14 +431,7 @@ func notifier_main() {
                             for _, proxy_ref := range proxy_ref_list {
                                 if !proxy_ref.Active {
                                     // copy to list of active proxies for notification mail
-                                    display_proxy_list.Inactive[proxy_ref.ContainerName] = append(display_proxy_list.Inactive[proxy_ref.Name], proxy_ref)
-
-                                    // mark as notified
-                                    var actual_ref = references.Proxies[proxy_ref.Name]
-                                    actual_ref.Notified = true
-
-                                    references.Proxies[proxy_ref.Name] = actual_ref
-
+                                    display_proxy_list.Inactive[proxy_ref.ContainerName] = append(display_proxy_list.Inactive[proxy_ref.ContainerName], proxy_ref)
                                 }
                             }
 
@@ -462,17 +448,41 @@ func notifier_main() {
                                                  fmt.Sprintf("Subject: %s\r\n", FRPS_LINK_NOTIFIER_EMAIL_SUBJECT ) +
                                                  "\r\n" +
                                                  fmt.Sprintf("%s\r\n",msg.String())
-
-                            err := SendMail(FRPS_LINK_NOTIFIER_SMTP_SERVER, auth, FRPS_LINK_NOTIFIER_SMTP_ACCOUNT, []string{email}, []byte(msg_str))
-
+                            
+                            
+                            fmt.Println(msg_str)
+                            
+                            err := smtp.SendMail(FRPS_LINK_NOTIFIER_SMTP_SERVER, auth, FRPS_LINK_NOTIFIER_SMTP_ACCOUNT, []string{email}, []byte(msg_str))
+                            
                             if err != nil {
                                 fmt.Printf("ERROR in notifier_main(): when sending mail to %s got '%s'\n", email, err)
                                 continue
                             }
 
                             num_sent_emails = num_sent_emails + 1
-                        }
+                            
+                            // mark both active and inactive connections as notified
+                            for _, proxy_ref := range proxy_ref_list {
+                                if proxy_ref.Active {
+                                    // mark as notified 
+                                    var actual_ref = references.Proxies[proxy_ref.Name]
+                                    actual_ref.Notified = true
+                                    
+                                    references.Proxies[proxy_ref.Name] = actual_ref
+                                }
+                            }
+                            
+                            for _, proxy_ref := range proxy_ref_list {
+                                if !proxy_ref.Active {
+                                    // mark as notified 
+                                    var actual_ref = references.Proxies[proxy_ref.Name]
+                                    actual_ref.Notified = true
+                                    
+                                    references.Proxies[proxy_ref.Name] = actual_ref
 
+                                }
+                            }
+                        }
                     }
 
                     fmt.Printf("In notifier_main(): notification email sent to %d recipient(s)\n", num_sent_emails)
