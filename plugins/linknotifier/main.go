@@ -451,31 +451,30 @@ func notifier_main() {
 
                             err := SendMail(FRPS_LINK_NOTIFIER_SMTP_SERVER, auth, FRPS_LINK_NOTIFIER_SMTP_ACCOUNT, []string{email}, []byte(msg_str))
 
-
                             if err != nil {
                                 fmt.Printf("ERROR in notifier_main(): when sending mail to %s got '%s'\n", email, err)
                                 continue
                             }
 
                             num_sent_emails = num_sent_emails + 1
-                            
+
                             // mark both active and inactive connections as notified
                             for _, proxy_ref := range proxy_ref_list {
                                 if proxy_ref.Active {
-                                    // mark as notified 
+                                    // mark as notified
                                     var actual_ref = references.Proxies[proxy_ref.Name]
                                     actual_ref.Notified = true
-                                    
+
                                     references.Proxies[proxy_ref.Name] = actual_ref
                                 }
                             }
-                            
+
                             for _, proxy_ref := range proxy_ref_list {
                                 if !proxy_ref.Active {
-                                    // mark as notified 
+                                    // mark as notified
                                     var actual_ref = references.Proxies[proxy_ref.Name]
                                     actual_ref.Notified = true
-                                    
+
                                     references.Proxies[proxy_ref.Name] = actual_ref
 
                                 }
