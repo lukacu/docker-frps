@@ -51,21 +51,21 @@ subdomain_host = {{getenv "FRPS_SUBDOMAIN_HOST" "frps.com"}}
 tcp_mux = {{getenv "FRPS_TCP_MUX" "true"}}
 
 {{if env.Getenv "FRPS_PERSISTENT_PORTS" }}
-[plugin.port-manager]
+[plugin.0-port-manager]
 addr = 127.0.0.1:9001
 path = /ports
 ops = NewProxy
 {{end}}
 
 {{if env.Getenv "FRPS_LETSENCRYPT_EMAIL" }}
-[plugin.acme-manager]
+[plugin.1-acme-manager]
 addr = 127.0.0.1:9002
 path = /acme
 ops = NewProxy
 {{end}}
 
 {{if env.Getenv "FRPS_LINK_NOTIFIER" }}
-[plugin.linknotifier]
+[plugin.2-linknotifier]
 addr = 127.0.0.1:9003
 path = /notifier
 ops = NewProxy
