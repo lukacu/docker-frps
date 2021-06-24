@@ -17,6 +17,7 @@ import (
     "text/template"
     "net/smtp"
     "bytes"
+    "sort"
 )
 
 type Request struct {
@@ -419,7 +420,8 @@ func notifier_main() {
                 if should_notify {
 
                     var num_sent_emails int = 0
-
+                    var email_recipients []string
+                    
                     // go over each group and create a notification list
                     for email, proxy_ref_list := range gruped_proxies {
 
@@ -482,7 +484,8 @@ func notifier_main() {
                             }
 
                             num_sent_emails = num_sent_emails + 1
-
+                            email_recipients = append(email_recipients, email)
+                            
                             // mark both active and inactive connections as notified
                             for _, proxy_ref := range proxy_ref_list {
                                 if proxy_ref.Active {
@@ -507,7 +510,7 @@ func notifier_main() {
                         }
                     }
 
-                    fmt.Printf("In notifier_main(): notification email sent to %d recipient(s)\n", num_sent_emails)
+                    fmt.Printf("In notifier_main(): notification email sent to %d recipient(s): %s\n", num_sent_emails, strings.Join(email_recipients[:],", "))
 
                     // save updated links
                     saveProxyLinksJSON()
