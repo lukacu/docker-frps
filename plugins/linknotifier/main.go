@@ -56,6 +56,8 @@ type DisplayProxyList struct {
     Inactive    map[string][]ProxyInfo    `json:"inactive"`
 }
 
+type SortedProxyInfo []ProxyInfo 
+
 var mutex sync.RWMutex
 var references = ProxyList{Proxies: make(map[string]ProxyInfo)}
 
@@ -80,6 +82,21 @@ func getEnvInt(name string, def int) int {
     ival, _ := strconv.ParseInt(val, 10, 32)
 
     return int(ival)
+}
+
+func (p SortedProxyInfo) Len() int {
+    return len(p)
+}
+func (p SortedProxyInfo) Swap(i, j int) {
+    p[i], p[j] = p[j], p[i]
+}
+func (p SortedProxyInfo) Less(i, j int) bool {
+    // sort by LocalPort then by ClientPrefix
+    if s[i].LocalPort != s[j].LocalPort {
+        return s[i].ClientPrefix < s[j].ClientPrefix
+    } else {        
+        return s[i].LocalPort < s[j].LocalPort
+    }
 }
 
 func check(e error) {
@@ -434,7 +451,15 @@ func notifier_main() {
                                     display_proxy_list.Inactive[proxy_ref.ContainerName] = append(display_proxy_list.Inactive[proxy_ref.ContainerName], proxy_ref)
                                 }
                             }
-
+                            // sort both active and inactive lists
+                            for _, proxy_list := range display_proxy_list.Active {
+                                sort.Sort(SortedProxyInfo(proxy_list))
+                            }
+                            
+                            for _, proxy_list := range display_proxy_list.Inactive {
+                                sort.Sort(SortedProxyInfo(proxy_list))
+                            }
+                            
 
                             var msg bytes.Buffer
                             err = tpl.Execute(&msg, display_proxy_list)
