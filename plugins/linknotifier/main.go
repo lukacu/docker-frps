@@ -93,10 +93,10 @@ func (p SortedProxyInfo) Swap(i, j int) {
 }
 func (p SortedProxyInfo) Less(i, j int) bool {
     // sort by LocalPort then by ClientPrefix
-    if s[i].LocalPort != s[j].LocalPort {
-        return s[i].ClientPrefix < s[j].ClientPrefix
+    if p[i].LocalPort == p[j].LocalPort {
+        return p[i].ClientPrefix < p[j].ClientPrefix
     } else {        
-        return s[i].LocalPort < s[j].LocalPort
+        return p[i].LocalPort < p[j].LocalPort
     }
 }
 
@@ -384,7 +384,6 @@ func notifier_main() {
                 fmt.Printf("In notifier_main(): at least %d sec since last modification .. doing notification now\n", FRPS_LINK_NOTIFIER_DELAY_SEC)
 
                 mutex.RLock()
-
                 // first check for validity of each connection and flag unresponsive ones
                 should_notify := false
                 num_active := 0
@@ -454,12 +453,12 @@ func notifier_main() {
                                 }
                             }
                             // sort both active and inactive lists
-                            for _, proxy_list := range display_proxy_list.Active {
-                                sort.Sort(SortedProxyInfo(proxy_list))
+                            for k, _ := range display_proxy_list.Active {
+                                sort.Sort(SortedProxyInfo(display_proxy_list.Active[k]))
                             }
                             
-                            for _, proxy_list := range display_proxy_list.Inactive {
-                                sort.Sort(SortedProxyInfo(proxy_list))
+                            for k, _ := range display_proxy_list.Inactive {
+                                sort.Sort(SortedProxyInfo(display_proxy_list.Inactive[k]))
                             }
                             
 
