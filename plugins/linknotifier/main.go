@@ -336,6 +336,7 @@ func notifier_main() {
                 if should_notify {
                     var num_sent_emails int = 0
                     var email_recipients []string
+                    
                     // go over each group and create a notification list
                     for email, proxy_ref_list := range gruped_proxies {
                         should_notify := false
@@ -365,9 +366,11 @@ func notifier_main() {
                             for k, _ := range display_proxy_list.Active {
                                 sort.Sort(SortedProxyInfo(display_proxy_list.Active[k]))
                             }
+                            
                             for k, _ := range display_proxy_list.Inactive {
                                 sort.Sort(SortedProxyInfo(display_proxy_list.Inactive[k]))
                             }
+                            
 
                             var msg bytes.Buffer
                             err = tpl.Execute(&msg, display_proxy_list)
