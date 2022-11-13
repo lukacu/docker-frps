@@ -1,7 +1,4 @@
 #!/bin/sh -e
-
 cd /data
-
 export PLUGIN_PORT=9003
-
 exec /usr/local/bin/linknotifier 2>&1

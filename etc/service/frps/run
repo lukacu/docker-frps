@@ -1,13 +1,20 @@
 #!/bin/sh -e
 
-/usr/local/bin/gotemp -f /etc/frps.ini.tpl -o /etc/frps.ini
+## TO DO: add cert back
+# if [ ! -z "${FRPS_LETSENCRYPT_EMAIL}" ]; then
+# sv start acmeproxy || exit 1
+# fi
 
-sv start portmanager || exit 1
-
-if [ ! -z "${FRPS_LETSENCRYPT_EMAIL}" ]; then
-
-sv start acmeproxy || exit 1
-
+if [ -f "/data/tokens" ]; then
+    export FRP_PLUGIN_MULTIUSER=true
+    sv start fp-multiuser || exit 1
+    
+    if [ -f "/data/ports" ]; then
+        export FRP_PLUGIN_ALLOWED_PORTS=true
+        sv start frp_allowed_ports || exit 1
+    fi
 fi
 
-exec /usr/local/bin/frps -c /etc/frps.ini 2>&1
+/usr/local/bin/gotemp -f /data/frps.ini.tpl -o /etc/service/frps/frps.ini
+
+exec /usr/local/bin/frps -c /etc/service/frps/frps.ini 2>&1

@@ -5,6 +5,11 @@ The image includes two useful server plugins that can be enabled dynamically. Th
 Environment configuration:
 
  * `FRPS_BIND_ADDRESS` - bind to specific address, defaults to 0.0.0.0
+ * `FRPS_BIND_PORT` - bind to specific port, default to 7000
+ * `FRPS_BIND_UDP_PORT` - UDP port, feature will be disabled if not set
+ * `FRPS_KCP_PORT` - KCP port, feature will be disabled if not set
+ * `FRPS_VHOST_HTTP_PORT` - vhost http port, default to 80
+ * `FRPS_VHOST_HTTPS_PORT` - vhost https port, default to 443
  * `FRPS_DASHBOARD` - set to enable FRPS dashboard
  * `FRPS_DASHBOARD_ADDRESS` - bind dashboard to specific address, defaults to 0.0.0.0
  * `FRPS_DASHBOARD_USER` - username to access dashboard, defaults to "frpsadmin"
@@ -13,8 +18,6 @@ Environment configuration:
  * `FRPS_MAX_PORTS` - max ports per client, defaults to unlimited
  * `FRPS_SUBDOMAIN_HOST` - subdomain for virtual hosts, defaults to "frps.com"
  * `FRPS_TCP_MUX` - TCP multiplexing, defaults to true
- * `FRPS_PERSISTENT_PORTS` - Enable to turn on PortManager plugin, defaults to false
- * `FRPS_LETSENCRYPT_EMAIL` - Set to your email to enable ACMEProxy, defaults to empty string
  * `FRPS_LINK_NOTIFIER` - Enable to turn on LinkNotifier plugin, defaults to false
 
 Note that an external volume has to be mounted to `/data` to make the port reservations and certificates persistent. 
@@ -28,7 +31,7 @@ Plugin can notify user of its active/inactive proxy ports via email. The followi
  * `FRPS_LINK_NOTIFIER_SMTP_ACCOUNT` - set environment var to your email/account name
  * `FRPS_LINK_NOTIFIER_SMTP_PASS` - set environment var to your password 
  * `FRPS_LINK_NOTIFIER_EMAIL_SUBJECT` - set environment var to subject of the email, defaults to "Reverse proxy links update"
- * `FRPS_LINK_NOTIFIER_DELAY_SEC`- set environment var to seconds of delay after last modification has been done befor sending notification, defaults to 15
+ * `FRPS_LINK_NOTIFIER_DELAY_SEC`- set environment var to seconds of delay after last modification has been done before sending notification, defaults to 15
  * `FRPS_LINK_NOTIFIER_SLEEP_CHECK_SEC`- set environment var to seconds of sleep time in infinite loop, defaults to 5
  * `FRPS_LINK_NOTIFIER_CONNECTION_CHECK_TIMEOUT_SEC` - set environment var to second of timeout after port connection is considered inactive, default to 2
 
@@ -51,8 +54,7 @@ type ProxyInfo struct {
     ClientPrefix  string     `json:"frps_prefix"`
     Url           string     `json:"url"`
     Active        bool       `json:"active"`
-    Notified      bool       `json:"notified"`
-    
+    Notified      bool       `json:"notified"`   
 }
 ```
 
@@ -60,3 +62,7 @@ To activate the email notification, FRP client must provide the following meta d
  * `meta_notify_email` - set to email address that will recieve the notificaiton
  * `meta_local_port` - set to local port used (the same as local_port)
  * `meta_frpc_prefix` - set to FRP client specific name (e.g., server hostname)
+
+### Reference
+ * [fp-multiuser](https://github.com/gofrp/fp-multiuser)
+ * [frp_plugin_allowed_ports](https://github.com/Parmicciano/frp_plugin_allowed_ports)

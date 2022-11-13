@@ -1,5 +1,0 @@
-#!/bin/sh
-
-mkdir -p `dirname $FRPS_LOGFILE`/acmeproxy
-
-exec svlogd -tt `dirname $FRPS_LOGFILE`/acmeproxy

@@ -1,0 +1,8 @@
+#!/bin/sh -e
+if [ -f "/data/tokens" ]; then
+    echo "Found /data/tokens, start service: fp-multiuser"
+    exec /usr/local/bin/fp-multiuser -l 127.0.0.1:9001  -f /data/tokens 2>&1
+else
+    echo "Not Found /data/tokens, won't start service: fp-multiuser"
+    sv stop fp-multiuser
+fi

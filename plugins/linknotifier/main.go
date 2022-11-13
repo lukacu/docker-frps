@@ -17,6 +17,7 @@ import (
     "text/template"
     "net/smtp"
     "bytes"
+    "sort"
 )
 
 type Request struct {
@@ -56,18 +57,17 @@ type DisplayProxyList struct {
     Inactive    map[string][]ProxyInfo    `json:"inactive"`
 }
 
+type SortedProxyInfo []ProxyInfo 
+
 var mutex sync.RWMutex
 var references = ProxyList{Proxies: make(map[string]ProxyInfo)}
 
 func getEnv(name string, def string) string {
     val := os.Getenv(name)
-
     if val == "" {
         return def
     }
-
     return val
-
 }
 
 func getEnvInt(name string, def int) int {
@@ -82,6 +82,21 @@ func getEnvInt(name string, def int) int {
     return int(ival)
 }
 
+func (p SortedProxyInfo) Len() int {
+    return len(p)
+}
+func (p SortedProxyInfo) Swap(i, j int) {
+    p[i], p[j] = p[j], p[i]
+}
+func (p SortedProxyInfo) Less(i, j int) bool {
+    // sort by LocalPort then by ClientPrefix
+    if p[i].LocalPort == p[j].LocalPort {
+        return p[i].ClientPrefix < p[j].ClientPrefix
+    } else {        
+        return p[i].LocalPort < p[j].LocalPort
+    }
+}
+
 func check(e error) {
     if e != nil {
         panic(e)
@@ -89,15 +104,12 @@ func check(e error) {
 }
 func saveProxyLinksJSON() {
     file, _ := json.MarshalIndent(references, "", " ")
-
     _ = ioutil.WriteFile("links.json", file, 0644)
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-
         switch r.Method {
         case "POST":
-
                 d := json.NewDecoder(r.Body)
                 r := &Request{}
                 o := &Response{}
@@ -105,7 +117,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
                 if err != nil {
                         http.Error(w, err.Error(), http.StatusInternalServerError)
                 }
-
 
                 if r.Op != "NewProxy" {
                     w.WriteHeader(http.StatusMethodNotAllowed)
@@ -117,7 +128,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
                 // do nothing if metas does not exists
                 if ok && metas != nil {
-
                     metas := metas.(map[string]interface{})
 
                     notify_email, ok_email := metas["notify_email"]
@@ -125,33 +135,21 @@ func handler(w http.ResponseWriter, r *http.Request) {
                     local_port, ok_port := metas["local_port"]
 
                     // do nothing of there is no notify_email, frpc_prefix or local_port in metas
-
                     if ok_email && ok_prefix && ok_port {
-
                         var key = fmt.Sprintf("%v:%v", r.Content["proxy_name"], r.Content["proxy_type"])
-
                         var url string = getEnv("FRPS_SUBDOMAIN_HOST","example.com")
                         var remote_port int = 0
-
                         if r.Content["proxy_type"] == "tcp" || r.Content["proxy_type"] == "udp" {
                             remote_port = int(r.Content["remote_port"].(float64))
-
                             url = fmt.Sprintf("%v:%v", url, remote_port)
-
                         } else if r.Content["proxy_type"] == "http" {
                             remote_port = 80
-
                             url =  fmt.Sprintf("http://%v.%v", r.Content["subdomain"], url)
-
                         }  else if r.Content["proxy_type"] == "https" {
                             remote_port = 443
-
                             url =  fmt.Sprintf("https://%v.%v", r.Content["subdomain"], url)
-
                         }
-
                         local_port, _ := strconv.Atoi(local_port.(string))
-
                         var container_name string = r.Content["proxy_name"].(string)
 
                         // to get actual container name by removing prefix name and port number suffix
@@ -170,9 +168,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
                                           Notified: false }
 
                         mutex.RLock()
-
                         link, ok := references.Proxies[key]
-
                         if !ok || !cmp.Equal(link, ref, cmpopts.IgnoreFields(ProxyInfo{}, "Notified")) {
                             // update reference if
                             //   - does not exists at all
@@ -181,13 +177,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
                             // save new links
                             saveProxyLinksJSON()
-
                         }
-
                         mutex.RUnlock()
                     }
                 }
-
                 o.Reject = false
                 o.Unchange = true
 
@@ -206,111 +199,69 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 // validateLine checks to see if a line has CR or LF as per RFC 5321
-
 func validateLine(line string) error {
-
 	if strings.ContainsAny(line, "\n\r") {
-
 		return errors.New("smtp: A line must not contain CR or LF")
-
 	}
-
 	return nil
-
 }
 
 func SendMail(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
-
 	if err := validateLine(from); err != nil {
-
 		return err
-
 	}
 
 	for _, recp := range to {
-
 		if err := validateLine(recp); err != nil {
-
 			return err
-
 		}
-
 	}
 
 	c, err := smtp.Dial(addr)
 
 	if err != nil {
-
 		return err
-
 	}
 
 	defer c.Close()
 
 	if err = c.Hello("frps"); err != nil {
-
 		return err
-
 	}
 
 	if a != nil {
-
 		if err = c.Auth(a); err != nil {
-
 			return err
-
 		}
-
 	}
 
 	if err = c.Mail(from); err != nil {
-
 		return err
-
 	}
 
 	for _, addr := range to {
-
 		if err = c.Rcpt(addr); err != nil {
-
 			return err
-
 		}
-
 	}
-
 	w, err := c.Data()
-
 	if err != nil {
-
 		return err
-
 	}
-
 	_, err = w.Write(msg)
-
 	if err != nil {
-
 		return err
-
 	}
 
 	err = w.Close()
-
 	if err != nil {
-
 		return err
-
 	}
-
 	return c.Quit()
-
 }
 
 func notifier_main() {
-
     //var frps_subdomain_host string = getEnv("FRPS_SUBDOMAIN_HOST","example.com")
-
     // infinite loop that
     //  - checks for changes of the links.json
     //  - if at least 30 sec since last change
@@ -336,14 +287,11 @@ func notifier_main() {
     var auth smtp.Auth
 
     if FRPS_LINK_NOTIFIER_SMTP_ACCOUNT != "" {
-
         auth := smtp.PlainAuth("", FRPS_LINK_NOTIFIER_SMTP_ACCOUNT, FRPS_LINK_NOTIFIER_SMTP_PASS, strings.Split(FRPS_LINK_NOTIFIER_SMTP_SERVER, ":")[0])
-
         if auth == nil {
             fmt.Printf("ERROR in notifier_main(): server authentication failed (%s)\n", FRPS_LINK_NOTIFIER_SMTP_SERVER)
             return
         }
-
     }
 
     fmt.Printf("In notifier_main(): started notification loop with:\n" +
@@ -357,68 +305,48 @@ func notifier_main() {
     for {
         file, err := os.Stat("links.json")
         if err == nil {
-
             modified_time := file.ModTime()
-
             if modified_time.After(last_notified) && time.Now().After(modified_time.Add(time.Duration(FRPS_LINK_NOTIFIER_DELAY_SEC) * time.Second)) {
-
-
                 fmt.Printf("In notifier_main(): at least %d sec since last modification .. doing notification now\n", FRPS_LINK_NOTIFIER_DELAY_SEC)
-
                 mutex.RLock()
-
                 // first check for validity of each connection and flag unresponsive ones
                 should_notify := false
                 num_active := 0
 
                 for name, _ := range references.Proxies {
                     proxy_ref := references.Proxies[name]
-
                     // check if connection is active
                     proxy_ref.Active = check_connection(proxy_ref, FRPS_LINK_NOTIFIER_CONNECTION_CHECK_TIMEOUT_SEC)
-
                     if proxy_ref.Active {
                         num_active = num_active + 1
                     }
-
                     // should notify only if any proxy is active and has not been yet notified
                     should_notify = should_notify || (proxy_ref.Active && !proxy_ref.Notified)
-
                     // update value
                     references.Proxies[name] = proxy_ref
-
                 }
-
                 // save updated links
                 saveProxyLinksJSON()
-
                 // then group references by email notifications
                 var gruped_proxies = make(map[string][]ProxyInfo)
                 for _, proxy_ref := range references.Proxies {
                     gruped_proxies[proxy_ref.Email] = append(gruped_proxies[proxy_ref.Email], proxy_ref)
                 }
-
                 // perform user notification if needed
                 if should_notify {
-
                     var num_sent_emails int = 0
-
+                    var email_recipients []string
                     // go over each group and create a notification list
                     for email, proxy_ref_list := range gruped_proxies {
-
                         should_notify := false
-
                         // first chech if any of the users connections have not been yet notified
                         for _, proxy_ref := range proxy_ref_list {
                             should_notify = should_notify || ! proxy_ref.Notified
                         }
-
                         // do notification only if user has not been notified for at least one connection
                         if should_notify {
-
                             var display_proxy_list = DisplayProxyList{Active: make(map[string][]ProxyInfo),
                                                                       Inactive: make(map[string][]ProxyInfo)}
-
                             // get active connections first
                             for _, proxy_ref := range proxy_ref_list {
                                 if proxy_ref.Active {
@@ -426,7 +354,6 @@ func notifier_main() {
                                     display_proxy_list.Active[proxy_ref.ContainerName] = append(display_proxy_list.Active[proxy_ref.ContainerName], proxy_ref)
                                 }
                             }
-
                             // get inactive connections last
                             for _, proxy_ref := range proxy_ref_list {
                                 if !proxy_ref.Active {
@@ -434,7 +361,13 @@ func notifier_main() {
                                     display_proxy_list.Inactive[proxy_ref.ContainerName] = append(display_proxy_list.Inactive[proxy_ref.ContainerName], proxy_ref)
                                 }
                             }
-
+                            // sort both active and inactive lists
+                            for k, _ := range display_proxy_list.Active {
+                                sort.Sort(SortedProxyInfo(display_proxy_list.Active[k]))
+                            }
+                            for k, _ := range display_proxy_list.Inactive {
+                                sort.Sort(SortedProxyInfo(display_proxy_list.Inactive[k]))
+                            }
 
                             var msg bytes.Buffer
                             err = tpl.Execute(&msg, display_proxy_list)
@@ -457,7 +390,8 @@ func notifier_main() {
                             }
 
                             num_sent_emails = num_sent_emails + 1
-
+                            email_recipients = append(email_recipients, email)
+                            
                             // mark both active and inactive connections as notified
                             for _, proxy_ref := range proxy_ref_list {
                                 if proxy_ref.Active {
@@ -482,12 +416,11 @@ func notifier_main() {
                         }
                     }
 
-                    fmt.Printf("In notifier_main(): notification email sent to %d recipient(s)\n", num_sent_emails)
+                    fmt.Printf("In notifier_main(): notification email sent to %d recipient(s): %s\n", num_sent_emails, strings.Join(email_recipients[:],", "))
 
                     // save updated links
                     saveProxyLinksJSON()
                 }
-
 
                 mutex.RUnlock()
                 last_notified = time.Now()
@@ -495,7 +428,6 @@ func notifier_main() {
         }
         time.Sleep(time.Duration(FRPS_LINK_NOTIFIER_SLEEP_CHECK_SEC) * time.Second)
 	}
-
 }
 
 func check_connection(proxy_ref ProxyInfo, FRPS_LINK_NOTIFIER_CONNECTION_CHECK_TIMEOUT_SEC int) bool {
@@ -505,13 +437,11 @@ func check_connection(proxy_ref ProxyInfo, FRPS_LINK_NOTIFIER_CONNECTION_CHECK_T
         conn, err := net.DialTimeout(proxy_ref.ProxyType, proxy_ref.Url, time.Duration(FRPS_LINK_NOTIFIER_CONNECTION_CHECK_TIMEOUT_SEC)*time.Second)
         if err == nil && conn != nil  {
             defer conn.Close()
-
             // connection is valid so we retain it
             ok = true
         }
 
     } else if proxy_ref.ProxyType == "http" || proxy_ref.ProxyType == "https" {
-
         client := http.Client{Timeout: time.Duration(FRPS_LINK_NOTIFIER_CONNECTION_CHECK_TIMEOUT_SEC) * time.Second}
         // check using HTTP request
         _, err := client.Get(proxy_ref.Url)
@@ -520,22 +450,17 @@ func check_connection(proxy_ref ProxyInfo, FRPS_LINK_NOTIFIER_CONNECTION_CHECK_T
             ok = true
         }
     }
-
     return ok
 }
 
 
 func main() {
-
     file, err := ioutil.ReadFile("links.json")
-
     if err == nil {
         err = json.Unmarshal([]byte(file), &references)
     }
 
     go notifier_main()
-
     http.HandleFunc("/", handler)
     http.ListenAndServe(fmt.Sprintf(":%d", getEnvInt("PLUGIN_PORT", 9003)), nil)
 }
-

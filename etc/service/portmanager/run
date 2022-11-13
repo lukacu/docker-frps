@@ -1,7 +1,0 @@
-#!/bin/sh -e
-
-cd /data
-
-export PLUGIN_PORT=9001
-
-exec /usr/local/bin/portmanager 2>&1

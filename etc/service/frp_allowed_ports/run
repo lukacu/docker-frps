@@ -1,0 +1,8 @@
+#!/bin/sh -e
+if [ -f "/data/tokens" ] && [ -f "/data/ports" ]; then
+    echo "Found /data/tokens, /data/ports, start service: frp_allowed_ports"
+    exec /usr/local/bin/frp_allowed_ports -l 127.0.0.1:9002  -p /data/ports 2>&1
+else 
+    echo "Not Found either /data/tokens or /data/ports, won't start service: frp_allowed_ports"
+    sv stop frp_allowed_ports
+fi
