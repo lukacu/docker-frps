@@ -17,6 +17,7 @@ import (
     "text/template"
     "net/smtp"
     "bytes"
+    "sort"
 )
 
 type Request struct {
@@ -56,6 +57,8 @@ type DisplayProxyList struct {
     Inactive    map[string][]ProxyInfo    `json:"inactive"`
 }
 
+type SortedProxyInfo []ProxyInfo 
+
 var mutex sync.RWMutex
 var references = ProxyList{Proxies: make(map[string]ProxyInfo)}
 
@@ -80,6 +83,21 @@ func getEnvInt(name string, def int) int {
     ival, _ := strconv.ParseInt(val, 10, 32)
 
     return int(ival)
+}
+
+func (p SortedProxyInfo) Len() int {
+    return len(p)
+}
+func (p SortedProxyInfo) Swap(i, j int) {
+    p[i], p[j] = p[j], p[i]
+}
+func (p SortedProxyInfo) Less(i, j int) bool {
+    // sort by LocalPort then by ClientPrefix
+    if p[i].LocalPort == p[j].LocalPort {
+        return p[i].ClientPrefix < p[j].ClientPrefix
+    } else {        
+        return p[i].LocalPort < p[j].LocalPort
+    }
 }
 
 func check(e error) {
@@ -366,7 +384,6 @@ func notifier_main() {
                 fmt.Printf("In notifier_main(): at least %d sec since last modification .. doing notification now\n", FRPS_LINK_NOTIFIER_DELAY_SEC)
 
                 mutex.RLock()
-
                 // first check for validity of each connection and flag unresponsive ones
                 should_notify := false
                 num_active := 0
@@ -402,7 +419,8 @@ func notifier_main() {
                 if should_notify {
 
                     var num_sent_emails int = 0
-
+                    var email_recipients []string
+                    
                     // go over each group and create a notification list
                     for email, proxy_ref_list := range gruped_proxies {
 
@@ -434,7 +452,15 @@ func notifier_main() {
                                     display_proxy_list.Inactive[proxy_ref.ContainerName] = append(display_proxy_list.Inactive[proxy_ref.ContainerName], proxy_ref)
                                 }
                             }
-
+                            // sort both active and inactive lists
+                            for k, _ := range display_proxy_list.Active {
+                                sort.Sort(SortedProxyInfo(display_proxy_list.Active[k]))
+                            }
+                            
+                            for k, _ := range display_proxy_list.Inactive {
+                                sort.Sort(SortedProxyInfo(display_proxy_list.Inactive[k]))
+                            }
+                            
 
                             var msg bytes.Buffer
                             err = tpl.Execute(&msg, display_proxy_list)
@@ -457,7 +483,8 @@ func notifier_main() {
                             }
 
                             num_sent_emails = num_sent_emails + 1
-
+                            email_recipients = append(email_recipients, email)
+                            
                             // mark both active and inactive connections as notified
                             for _, proxy_ref := range proxy_ref_list {
                                 if proxy_ref.Active {
@@ -482,7 +509,7 @@ func notifier_main() {
                         }
                     }
 
-                    fmt.Printf("In notifier_main(): notification email sent to %d recipient(s)\n", num_sent_emails)
+                    fmt.Printf("In notifier_main(): notification email sent to %d recipient(s): %s\n", num_sent_emails, strings.Join(email_recipients[:],", "))
 
                     // save updated links
                     saveProxyLinksJSON()
