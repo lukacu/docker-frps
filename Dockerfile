@@ -9,8 +9,8 @@ RUN cd /frp && make
 
 ADD ./plugins /src
 RUN cd /src/portmanager && go build
-RUN cd /src/acmeproxy && go build
-RUN cd /src/linknotifier && go build
+RUN cd /src/acmeproxy && go mod tidy && go build
+RUN cd /src/linknotifier && go mod tidy && go build
 
 FROM alpine:latest
 MAINTAINER luka.cehovin@gmail.com
