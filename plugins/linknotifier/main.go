@@ -105,6 +105,13 @@ func check(e error) {
         panic(e)
     }
 }
+func loadProxyLinksJSON() {
+    file, err := ioutil.ReadFile("links.json")
+
+    if err == nil {
+        err = json.Unmarshal([]byte(file), &references)
+    }
+}
 func saveProxyLinksJSON() {
     file, _ := json.MarshalIndent(references, "", " ")
 
@@ -142,7 +149,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
                     frpc_prefix, ok_prefix := metas["frpc_prefix"]
                     local_port, ok_port := metas["local_port"]
 
-                    // do nothing of there is no notify_email, frpc_prefix or local_port in metas
+                    // do nothing if there is no notify_email, frpc_prefix or local_port in metas
 
                     if ok_email && ok_prefix && ok_port {
 
@@ -187,14 +194,17 @@ func handler(w http.ResponseWriter, r *http.Request) {
                                           Active: true,
                                           Notified: false }
 
-                        mutex.RLock()
+                        mutex.Lock()
+
+                        // first load proxy list from JSON file to sync with any changes done manually by the user
+                        loadProxyLinksJSON()
 
                         link, ok := references.Proxies[key]
 
                         if !ok || !cmp.Equal(link, ref, cmpopts.IgnoreFields(ProxyInfo{}, "Notified")) {
                             // update reference if
                             //   - does not exists at all
-                            //   - already exsits but is not the same
+                            //   - already exists but is not the same
                             references.Proxies[key] = ref
 
                             // save new links
@@ -202,7 +212,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
                         }
 
-                        mutex.RUnlock()
+                        mutex.Unlock()
                     }
                 }
 
@@ -347,7 +357,7 @@ func notifier_main() {
     tpl, err := template.ParseFiles("notification_email.html.tpl")
 
     if err != nil {
-        fmt.Println("ERROR in notifier_main(): missing notification_email.html.tpl template file. E-mail notification will not be performed !!")
+        fmt.Println("[linknotifier]: ERROR in notifier_main(): missing notification_email.html.tpl template file. E-mail notification will not be performed !!")
         return
     }
 
@@ -358,19 +368,19 @@ func notifier_main() {
         auth := smtp.PlainAuth("", FRPS_LINK_NOTIFIER_SMTP_ACCOUNT, FRPS_LINK_NOTIFIER_SMTP_PASS, strings.Split(FRPS_LINK_NOTIFIER_SMTP_SERVER, ":")[0])
 
         if auth == nil {
-            fmt.Printf("ERROR in notifier_main(): server authentication failed (%s)\n", FRPS_LINK_NOTIFIER_SMTP_SERVER)
+            fmt.Printf("[linknotifier]: ERROR in notifier_main(): server authentication failed (%s)\n", FRPS_LINK_NOTIFIER_SMTP_SERVER)
             return
         }
 
     }
 
-    fmt.Printf("In notifier_main(): started notification loop with:\n" +
-                "\tFRPS_LINK_NOTIFIER_DELAY_SEC=%d\n" +
-                "\tFRPS_LINK_NOTIFIER_SLEEP_CHECK_SEC=%d\n" +
-                "\tFRPS_LINK_NOTIFIER_CONNECTION_CHECK_TIMEOUT_SEC=%d\n" +
-                "\tFRPS_LINK_NOTIFIER_SMTP_SERVER=%s\n" +
-                "\tFRPS_LINK_NOTIFIER_SMTP_ACCOUNT=%s\n",
-                FRPS_LINK_NOTIFIER_DELAY_SEC, FRPS_LINK_NOTIFIER_SLEEP_CHECK_SEC, FRPS_LINK_NOTIFIER_CONNECTION_CHECK_TIMEOUT_SEC, FRPS_LINK_NOTIFIER_SMTP_SERVER, FRPS_LINK_NOTIFIER_SMTP_ACCOUNT)
+    fmt.Printf("[linknotifier]: Started notification loop with:\n" +
+               "[linknotifier]: \tFRPS_LINK_NOTIFIER_DELAY_SEC=%d\n" +
+               "[linknotifier]: \tFRPS_LINK_NOTIFIER_SLEEP_CHECK_SEC=%d\n" +
+               "[linknotifier]: \tFRPS_LINK_NOTIFIER_CONNECTION_CHECK_TIMEOUT_SEC=%d\n" +
+               "[linknotifier]: \tFRPS_LINK_NOTIFIER_SMTP_SERVER=%s\n" +
+               "[linknotifier]: \tFRPS_LINK_NOTIFIER_SMTP_ACCOUNT=%s\n",
+               FRPS_LINK_NOTIFIER_DELAY_SEC, FRPS_LINK_NOTIFIER_SLEEP_CHECK_SEC, FRPS_LINK_NOTIFIER_CONNECTION_CHECK_TIMEOUT_SEC, FRPS_LINK_NOTIFIER_SMTP_SERVER, FRPS_LINK_NOTIFIER_SMTP_ACCOUNT)
 
     for {
         file, err := os.Stat("links.json")
@@ -381,9 +391,13 @@ func notifier_main() {
             if modified_time.After(last_notified) && time.Now().After(modified_time.Add(time.Duration(FRPS_LINK_NOTIFIER_DELAY_SEC) * time.Second)) {
 
 
-                fmt.Printf("In notifier_main(): at least %d sec since last modification .. doing notification now\n", FRPS_LINK_NOTIFIER_DELAY_SEC)
+                fmt.Printf("[linknotifier]: At least %d sec since last modification .. doing notification now\n", FRPS_LINK_NOTIFIER_DELAY_SEC)
 
-                mutex.RLock()
+                mutex.Lock()
+                
+                // load proxy links from JSON file to sync with any changes done manually by the user
+                loadProxyLinksJSON()
+                
                 // first check for validity of each connection and flag unresponsive ones
                 should_notify := false
                 num_active := 0
@@ -466,7 +480,7 @@ func notifier_main() {
                             err = tpl.Execute(&msg, display_proxy_list)
 
                             if err != nil {
-                                fmt.Println(err)
+                                fmt.Printf("[linknotifier]: ERROR %s", err)
                                 return
                             }
 
@@ -478,7 +492,7 @@ func notifier_main() {
                             err := SendMail(FRPS_LINK_NOTIFIER_SMTP_SERVER, auth, FRPS_LINK_NOTIFIER_SMTP_ACCOUNT, []string{email}, []byte(msg_str))
 
                             if err != nil {
-                                fmt.Printf("ERROR in notifier_main(): when sending mail to %s got '%s'\n", email, err)
+                                fmt.Printf("[linknotifier]: ERROR in notifier_main(): when sending mail to %s got '%s'\n", email, err)
                                 continue
                             }
 
@@ -509,14 +523,14 @@ func notifier_main() {
                         }
                     }
 
-                    fmt.Printf("In notifier_main(): notification email sent to %d recipient(s): %s\n", num_sent_emails, strings.Join(email_recipients[:],", "))
+                    fmt.Printf("[linknotifier]: Notification email sent to %d recipient(s): %s\n", num_sent_emails, strings.Join(email_recipients[:],", "))
 
                     // save updated links
                     saveProxyLinksJSON()
                 }
 
 
-                mutex.RUnlock()
+                mutex.Unlock()
                 last_notified = time.Now()
             }
         }
@@ -553,7 +567,6 @@ func check_connection(proxy_ref ProxyInfo, FRPS_LINK_NOTIFIER_CONNECTION_CHECK_T
 
 
 func main() {
-
     file, err := ioutil.ReadFile("links.json")
 
     if err == nil {
