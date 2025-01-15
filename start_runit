@@ -22,9 +22,9 @@ do
     fi
 done
 if [ $# -eq 0 ]; then
-    exec /sbin/runsvdir -P /etc/service
+    exec /usr/sbin/runsvdir -P /etc/service
 fi
-/sbin/runsvdir -P /etc/service &
+/usr/sbin/runsvdir -P /etc/service &
 
 [ "$1" == '--' ] && shift
 exec $@
